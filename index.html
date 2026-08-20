@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="广告账户消耗构成" />
+  <title>7月消耗构成</title>
+  <style>
+    :root {
+      --ink: #17212b;
+      --muted: #70808b;
+      --line: #e6ecef;
+      --surface: #ffffff;
+      --surface-soft: #f6faf9;
+      --tab: #eef3f4;
+      --accent: #0f766e;
+      --shadow: 0 18px 45px rgba(30, 62, 68, .08);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      color: var(--ink);
+      background: #edf3f4;
+      font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .shell {
+      width: min(1040px, calc(100% - 20px));
+      margin: 12px auto;
+      padding: 18px 22px 18px;
+      background: var(--surface);
+      border: 1px solid #dce6e8;
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 { margin: 0; font-size: clamp(20px, 1.8vw, 24px); line-height: 1.2; letter-spacing: 0; }
+
+    .tabs {
+      display: inline-grid;
+      grid-template-columns: repeat(3, minmax(84px, 1fr));
+      gap: 4px;
+      padding: 4px;
+      background: var(--tab);
+      border-radius: 11px;
+    }
+
+    .tab {
+      min-height: 36px;
+      padding: 0 14px;
+      border: 0;
+      border-radius: 8px;
+      color: #64747d;
+      background: transparent;
+      font: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background .2s ease, color .2s ease, box-shadow .2s ease;
+    }
+    .tab:hover { color: var(--ink); }
+    .tab[aria-selected="true"] {
+      color: var(--ink);
+      background: #fff;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(38, 63, 71, .14);
+    }
+
+    .content {
+      display: grid;
+      grid-template-columns: minmax(250px, 40%) 1fr;
+      align-items: center;
+      gap: clamp(20px, 3vw, 42px);
+      padding: 24px 0 10px;
+    }
+
+    .chart-wrap {
+      display: grid;
+      place-items: center;
+      width: min(100%, 330px);
+      margin: 0 auto;
+    }
+    .chart {
+      position: relative;
+      width: min(100%, 280px);
+      aspect-ratio: 1;
+    }
+    .chart svg { width: 100%; height: 100%; overflow: visible; transform: rotate(-90deg); }
+    .chart-track { fill: none; stroke: #eef3f2; stroke-width: 22; }
+    .chart-segment {
+      fill: none;
+      stroke-width: 22;
+      stroke-linecap: butt;
+      cursor: pointer;
+      transition: stroke-width .18s ease, opacity .18s ease, filter .18s ease;
+    }
+    .chart-segment:hover, .chart-segment.is-active {
+      stroke-width: 28;
+      filter: drop-shadow(0 3px 4px rgba(31, 54, 60, .17));
+    }
+    .chart-segment.is-muted { opacity: .35; }
+    .chart-center {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-content: center;
+      text-align: center;
+      pointer-events: none;
+    }
+    .chart-center-label { color: var(--muted); font-size: 13px; margin-bottom: 5px; }
+    .chart-center-total { font-size: clamp(17px, 2vw, 22px); font-weight: 800; letter-spacing: .01em; }
+
+    .legend { width: 100%; }
+    .legend-row {
+      position: relative;
+      display: grid;
+      grid-template-columns: 18px 1fr auto;
+      grid-template-rows: auto auto;
+      column-gap: 10px;
+      align-items: center;
+      min-height: 64px;
+      padding: 10px 4px;
+      border-bottom: 1px solid var(--line);
+      cursor: default;
+      transition: background .18s ease, padding .18s ease;
+    }
+    .legend-row:first-child { border-top: 1px solid var(--line); }
+    .legend-row:hover, .legend-row.is-active { background: var(--surface-soft); padding-left: 12px; padding-right: 12px; }
+    .swatch { grid-row: 1 / 3; width: 12px; height: 12px; border-radius: 3px; }
+    .legend-name { font-size: 15px; line-height: 1.3; }
+    .legend-count { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .legend-value { align-self: start; font-size: 14px; font-weight: 750; white-space: nowrap; }
+    .legend-share { grid-column: 3; grid-row: 2; align-self: end; color: #74858d; font-size: 12px; }
+
+    .tooltip {
+      position: fixed;
+      z-index: 10;
+      pointer-events: none;
+      min-width: 168px;
+      padding: 11px 13px;
+      color: #fff;
+      background: rgba(21, 35, 42, .94);
+      border-radius: 8px;
+      box-shadow: 0 10px 24px rgba(15, 33, 38, .2);
+      font-size: 13px;
+      line-height: 1.55;
+      opacity: 0;
+      transform: translate(10px, 10px);
+      transition: opacity .12s ease;
+    }
+    .tooltip.is-visible { opacity: 1; }
+    .tooltip-title { font-weight: 700; margin-bottom: 3px; }
+    .tooltip-line { color: #d7e3e5; }
+
+    .note { margin: 10px 0 0; color: #849299; font-size: 10.5px; }
+
+    @media (max-width: 760px) {
+      .shell { width: calc(100% - 16px); margin: 8px auto; padding: 14px 14px 16px; border-radius: 9px; }
+      .topbar { align-items: flex-start; flex-direction: column; gap: 10px; }
+      .tabs { width: 100%; grid-template-columns: repeat(3, 1fr); }
+      .tab { padding: 0 8px; font-size: 13px; }
+      .content { grid-template-columns: 1fr; gap: 16px; padding-top: 20px; }
+      .chart { width: min(68vw, 250px); }
+      .legend-row { min-height: 62px; }
+      .legend-name { font-size: 14px; }
+      .legend-value { font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell" aria-label="消耗构成卡片">
+    <header class="topbar">
+      <h1>7月消耗构成</h1>
+      <nav class="tabs" role="tablist" aria-label="消耗维度">
+        <button class="tab" role="tab" data-view="placement" aria-selected="true">版位</button>
+        <button class="tab" role="tab" data-view="bid" aria-selected="false">出价方式</button>
+        <button class="tab" role="tab" data-view="material" aria-selected="false">素材类型</button>
+      </nav>
+    </header>
+
+    <section class="content">
+      <div class="chart-wrap">
+        <div class="chart" id="chart" aria-label="消耗占比环形图">
+          <svg viewBox="0 0 200 200" role="img" aria-hidden="true">
+            <circle class="chart-track" cx="100" cy="100" r="67"></circle>
+            <g id="segments"></g>
+          </svg>
+          <div class="chart-center">
+            <div class="chart-center-label" id="centerLabel">总消耗</div>
+            <div class="chart-center-total" id="centerTotal">¥ 1,612,437.09</div>
+          </div>
+        </div>
+      </div>
+      <div class="legend" id="legend" aria-live="polite"></div>
+    </section>
+  </main>
+  <div class="tooltip" id="tooltip" role="status"></div>
+
+  <script>
+    const total = 1612437.09;
+    const currency = value => `¥ ${value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const views = {
+      placement: {
+        label: '版位',
+        items: [
+          { name: '站内', count: 992, value: 1540422.86, color: '#149477' },
+          { name: '穿山甲', count: 125, value: 72014.23, color: '#3b82b7' }
+        ]
+      },
+      bid: {
+        label: '出价方式',
+        items: [
+          { name: '单出价', count: 168, value: 751189.00, color: '#7568c4' },
+          { name: '7双', count: 619, value: 628776.53, color: '#aa7a3d' },
+          { name: '次双', count: 229, value: 117028.96, color: '#d18a27' },
+          { name: '每留', count: 101, value: 115442.60, color: '#16876d' }
+        ]
+      },
+      material: {
+        label: '素材类型',
+        items: [
+          { name: 'AI', count: 443, value: 996431.10, color: '#718b82' },
+          { name: '混剪', count: 427, value: 517491.32, color: '#4f8e9a' },
+          { name: '真人', count: 242, value: 97972.39, color: '#7c918b' },
+          { name: '二剪', count: 5, value: 542.28, color: '#c48225' }
+        ]
+      }
+    };
+
+    const circumference = 2 * Math.PI * 67;
+    const chart = document.getElementById('chart');
+    const segments = document.getElementById('segments');
+    const legend = document.getElementById('legend');
+    const tooltip = document.getElementById('tooltip');
+    const centerLabel = document.getElementById('centerLabel');
+    const centerTotal = document.getElementById('centerTotal');
+    let activeIndex = -1;
+
+    function showTooltip(item, event) {
+      tooltip.innerHTML = `<div class="tooltip-title">${item.name}</div><div class="tooltip-line">消耗：${currency(item.value)}</div><div class="tooltip-line">占比：${(item.value / total * 100).toFixed(1)}% · ${item.count.toLocaleString('zh-CN')} 个账户</div>`;
+      tooltip.classList.add('is-visible');
+      moveTooltip(event);
+    }
+    function moveTooltip(event) {
+      const pad = 14;
+      const rect = tooltip.getBoundingClientRect();
+      const x = Math.min(event.clientX + 14, window.innerWidth - rect.width - pad);
+      const y = Math.min(event.clientY + 14, window.innerHeight - rect.height - pad);
+      tooltip.style.left = `${Math.max(pad, x)}px`;
+      tooltip.style.top = `${Math.max(pad, y)}px`;
+    }
+    function hideTooltip() { tooltip.classList.remove('is-visible'); }
+    function setActive(index) {
+      activeIndex = index;
+      document.querySelectorAll('.chart-segment, .legend-row').forEach((el, i) => el.classList.toggle('is-active', i === index));
+    }
+
+    function render(viewKey) {
+      const view = views[viewKey];
+      activeIndex = -1;
+      centerLabel.textContent = '总消耗';
+      centerTotal.textContent = currency(total);
+      segments.innerHTML = '';
+      legend.innerHTML = '';
+      let offset = 0;
+
+      view.items.forEach((item, index) => {
+        const share = item.value / total;
+        const length = share * circumference;
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', '100');
+        circle.setAttribute('cy', '100');
+        circle.setAttribute('r', '67');
+        circle.setAttribute('class', 'chart-segment');
+        circle.setAttribute('stroke', item.color);
+        circle.setAttribute('stroke-dasharray', `${length} ${circumference - length}`);
+        circle.setAttribute('stroke-dashoffset', `${-offset}`);
+        circle.dataset.index = index;
+        circle.addEventListener('mouseenter', e => { setActive(index); showTooltip(item, e); });
+        circle.addEventListener('mousemove', moveTooltip);
+        circle.addEventListener('mouseleave', () => { setActive(-1); hideTooltip(); });
+        segments.appendChild(circle);
+
+        const row = document.createElement('div');
+        row.className = 'legend-row';
+        row.innerHTML = `<span class="swatch" style="background:${item.color}"></span><div><div class="legend-name">${item.name}</div><div class="legend-count">${item.count.toLocaleString('zh-CN')} 个账户</div></div><div class="legend-value">${currency(item.value)}</div><div class="legend-share">${(share * 100).toFixed(1)}%</div>`;
+        row.addEventListener('mouseenter', e => { setActive(index); showTooltip(item, e); });
+        row.addEventListener('mousemove', moveTooltip);
+        row.addEventListener('mouseleave', () => { setActive(-1); hideTooltip(); });
+        legend.appendChild(row);
+        offset += length;
+      });
+    }
+
+    document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(other => other.setAttribute('aria-selected', other === tab ? 'true' : 'false'));
+      render(tab.dataset.view);
+    }));
+
+    render('placement');
+  </script>
+</body>
+</html>
+
